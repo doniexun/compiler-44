@@ -9,6 +9,7 @@
 
 #include <sys/stat.h>
 #include <stdio.h>
+#include <string.h>
 
 enum tokens {
     LBRACKET,
@@ -59,6 +60,8 @@ enum tokens {
     COMMA,
     HASH,
     CONCAT,
+    KEYWORD,
+    IDENTIFIER,
     ERROR
 };
 
@@ -111,6 +114,8 @@ static char* operators[] = {
     ",",
     "#",
     "##",
+    "KEYWORD",
+    "IDENTIFIER",
     "@"
 };
 

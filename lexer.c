@@ -7,8 +7,6 @@
 /*
  * TODO:
  * source positions
- * identifiers
- * keywords
  * literals
  * whitespace
  */
@@ -18,6 +16,7 @@
 char accept(void);
 char nextToken(void);
 size_t fsize(const char *fname);
+int isKeyword(const char *name, int len);
 
 static FILE *f;
 static char currentChar;
@@ -29,7 +28,7 @@ int parse(const char *fname) {
         return -1;
     }
 
-    size_t len = fsize(fname), i = 0;
+    size_t len = fsize(fname), i = 0, j = 0, strMax = 0;;
     int result[len];
     accept();
     while (currentChar != EOF) {
@@ -185,11 +184,11 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '/':
-                printf("TODO: whitespace\n");
+                //printf("TODO: whitespace\n");
                 accept();
                 break;
             case '*':
-                printf("TODO: whitespace\n");
+                //printf("TODO: whitespace\n");
                 accept();
                 break;
             case '=':
@@ -407,8 +406,35 @@ int parse(const char *fname) {
         case 'Y':
         case 'Z':
         case '_':
-            printf("TODO: keywords, etc.\n");
-            accept();
+            {
+                j = 0;
+                strMax = 60;
+                char *name;
+                char temp[strMax];
+                name = temp;
+                while ((currentChar >= 'A' && currentChar <= 'Z')
+                       || (currentChar >= 'a' && currentChar <= 'z')
+                       || currentChar == '_') {
+                    name[j] = currentChar;
+                    j++;
+                    if (j >= strMax - 2) {
+                        char temp2[strMax * 2];
+                        strncpy(temp2, name, strMax - 1);
+                        strMax *= 2;
+                        name = temp2;
+                    }
+                    accept();
+                }
+                name[j] = '\0';
+
+                if (isKeyword(name, j + 1)) {
+                    result[i] = KEYWORD;
+                    i++;
+                } else {
+                    result[i] = IDENTIFIER;
+                    i++;
+                }
+            }
             break;
         case '0':
         case '1':
@@ -420,21 +446,21 @@ int parse(const char *fname) {
         case '7':
         case '8':
         case '9':
-            printf("TODO: numbers\n");
+            //printf("TODO: numbers\n");
             accept();
             break;
         case ' ':
         case '\t':
         case '\n':
-            printf("TODO: whitespace\n");
+            //printf("TODO: whitespace\n");
             accept();
             break;
         case '"':
-            printf("TODO: strings\n");
+            //printf("TODO: strings\n");
             accept();
             break;
         case '\\':
-            printf("TODO: escapes\n");
+            //printf("TODO: escapes\n");
             accept();
             break;
         default:
@@ -467,4 +493,54 @@ size_t fsize(const char *fname) {
         return st.st_size;
 
     return -1;
+}
+
+int isKeyword(const char *name, int len) {
+    if (!strncmp(name, "auto", len)
+        || !strncmp(name, "break", len)
+        || !strncmp(name, "case", len)
+        || !strncmp(name, "char", len)
+        || !strncmp(name, "const", len)
+        || !strncmp(name, "continue", len)
+        || !strncmp(name, "default", len)
+        || !strncmp(name, "do", len)
+        || !strncmp(name, "double", len)
+        || !strncmp(name, "else", len)
+        || !strncmp(name, "enum", len)
+        || !strncmp(name, "extern", len)
+        || !strncmp(name, "float", len)
+        || !strncmp(name, "for", len)
+        || !strncmp(name, "goto", len)
+        || !strncmp(name, "if", len)
+        || !strncmp(name, "inline", len)
+        || !strncmp(name, "int", len)
+        || !strncmp(name, "long", len)
+        || !strncmp(name, "register", len)
+        || !strncmp(name, "restrict", len)
+        || !strncmp(name, "return", len)
+        || !strncmp(name, "short", len)
+        || !strncmp(name, "signed", len)
+        || !strncmp(name, "sizeof", len)
+        || !strncmp(name, "static", len)
+        || !strncmp(name, "struct", len)
+        || !strncmp(name, "switch", len)
+        || !strncmp(name, "typedef", len)
+        || !strncmp(name, "union", len)
+        || !strncmp(name, "unsigned", len)
+        || !strncmp(name, "void", len)
+        || !strncmp(name, "volatile", len)
+        || !strncmp(name, "while", len)
+        || !strncmp(name, "_Alignas", len)
+        || !strncmp(name, "_Alignof", len)
+        || !strncmp(name, "_Atomic", len)
+        || !strncmp(name, "_Bool", len)
+        || !strncmp(name, "_Complex", len)
+        || !strncmp(name, "_Generic", len)
+        || !strncmp(name, "_Imaginary", len)
+        || !strncmp(name, "_Noreturn", len)
+        || !strncmp(name, "_Static_assert", len)
+        || !strncmp(name, "_Thread_local" , len)) {
+        return 1;
+    }
+    return 0;
 }
