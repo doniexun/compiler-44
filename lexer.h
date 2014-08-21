@@ -59,12 +59,6 @@ enum tokens {
     COMMA,
     HASH,
     CONCAT,
-    DG_LBRACKET,
-    DG_RBRACKET,
-    DG_LCURLY,
-    DG_RCURLY,
-    DG_HASH,
-    DG_HASHHASH,
     ERROR
 };
 
@@ -115,12 +109,6 @@ static char* operators[] = {
     "^=",
     "|=",
     ",",
-    "#",
-    "##",
-    "[",
-    "]",
-    "{",
-    "}",
     "#",
     "##",
     "@"
