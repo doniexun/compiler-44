@@ -54,7 +54,7 @@ keyword                         -> auto
                                 |  _Noreturn
                                 |  _Static_assert
                                 |  _Thread_local
-identifier                      -> ( identifier-nondigit | digit ) ( identifier-nondigit | digit )*
+identifier                      -> ( identifier-nondigit ) ( identifier-nondigit | digit )*
 identifier-nondigit             -> nondigit
                                 |  universal-character-name
                                 |  other implementation-defined characters

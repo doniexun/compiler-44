@@ -414,6 +414,7 @@ int parse(const char *fname) {
                 name = temp;
                 while ((currentChar >= 'A' && currentChar <= 'Z')
                        || (currentChar >= 'a' && currentChar <= 'z')
+                       || (currentChar >= '0' && currentChar <= '9')
                        || currentChar == '_') {
                     name[j] = currentChar;
                     j++;
