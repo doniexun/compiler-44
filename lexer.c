@@ -408,21 +408,15 @@ int parse(const char *fname) {
         case '_':
             {
                 j = 0;
-                strMax = 60;
-                char *name;
-                char temp[strMax];
-                name = temp;
+                strMax = 64;
+                char name[strMax];
                 while ((currentChar >= 'A' && currentChar <= 'Z')
-                       || (currentChar >= 'a' && currentChar <= 'z')
-                       || (currentChar >= '0' && currentChar <= '9')
-                       || currentChar == '_') {
-                    name[j] = currentChar;
-                    j++;
-                    if (j >= strMax - 2) {
-                        char temp2[strMax * 2];
-                        strncpy(temp2, name, strMax - 1);
-                        strMax *= 2;
-                        name = temp2;
+                        || (currentChar >= 'a' && currentChar <= 'z')
+                        || (currentChar >= '0' && currentChar <= '9')
+                        || currentChar == '_') {
+                    if (j < strMax) {
+                        name[j] = currentChar;
+                        j++;
                     }
                     accept();
                 }
@@ -438,6 +432,7 @@ int parse(const char *fname) {
             }
             break;
         case '0':
+            // printf("TODO: octal/hex numbers");
         case '1':
         case '2':
         case '3':
