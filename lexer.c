@@ -432,7 +432,6 @@ int parse(const char *fname) {
             }
             break;
         case '0':
-            // printf("TODO: octal/hex numbers");
         case '1':
         case '2':
         case '3':
@@ -442,8 +441,16 @@ int parse(const char *fname) {
         case '7':
         case '8':
         case '9':
-            //printf("TODO: numbers\n");
-            accept();
+            {
+                long long int temp = currentChar - '0';
+                accept();
+                while (currentChar >= '0'
+                       && currentChar <= '9') {
+                    temp *= 10;
+                    temp += currentChar - '0';
+                    accept();
+                }
+            }
             break;
         case ' ':
         case '\t':
