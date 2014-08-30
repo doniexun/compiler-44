@@ -17,6 +17,7 @@ char accept(void);
 char nextToken(void);
 size_t fsize(const char *fname);
 int isKeyword(const char *name, int len);
+int lexDecimal(void);
 
 static FILE *f;
 static char currentChar;
@@ -441,16 +442,12 @@ int parse(const char *fname) {
         case '7':
         case '8':
         case '9':
-            {
-                long long int temp = currentChar - '0';
-                accept();
-                while (currentChar >= '0'
-                       && currentChar <= '9') {
-                    temp *= 10;
-                    temp += currentChar - '0';
-                    accept();
-                }
+            if (lexDecimal()) {
+                result[i] = FLOAT;
+            } else {
+                result[i] = INTEGER;
             }
+            i++;
             break;
         case ' ':
         case '\t':
@@ -546,4 +543,65 @@ int isKeyword(const char *name, int len) {
         return 1;
     }
     return 0;
+}
+
+int lexDecimal(void) {
+    /*
+     * "regex" for a decimal float: TODO: ll and LL, etc.
+     * [+-]?[0-9]*\.?[0-9]*[e|E|e+|e-|E+|E-]?[0-9]+
+     */
+    double temp = currentChar - '0';
+    int isFloat = 0;
+    accept();
+    while (currentChar >= '0'
+           && currentChar <= '9') {
+        temp *= 10.0;
+        temp += currentChar - '0';
+        accept();
+    }
+
+    double current = 0.0;
+    if (currentChar == '.') {
+        isFloat = 1;
+        accept();
+
+        double power = 0.1;
+        while (currentChar >= '0'
+               && currentChar <= '9') {
+            current += power * (currentChar - '0');
+            power /= 10;
+            accept();
+        }
+    }
+
+    double exponent = 0.0;
+    if (currentChar == 'e'
+        || currentChar == 'E') {
+        int negExp = 0;
+        isFloat = 1;
+        accept();
+
+        if (currentChar == '-') {
+            negExp = 1;
+            accept();
+        } else if (currentChar == '+') {
+            accept();
+        }
+
+        double power = 1.0;
+        while (currentChar >= '0'
+               && currentChar <= '9') {
+            exponent += power * (currentChar - '0');
+            power *= 10.0;
+            accept();
+        }
+
+        if (negExp) {
+            exponent *= -1.0;
+        }
+    }
+    temp += current;
+    temp *= pow(10, exponent);
+
+    return isFloat;
 }

@@ -7,6 +7,7 @@
 #ifndef _LEXER_H_
 #define _LEXER_H_
 
+#include <math.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
@@ -62,6 +63,12 @@ enum tokens {
     CONCAT,
     KEYWORD,
     IDENTIFIER,
+    INTEGER,
+    FLOAT,
+    OCT_INT,
+    OCT_FLOAT,
+    HEX_INT,
+    HEX_FLOAT,
     ERROR
 };
 
@@ -116,6 +123,12 @@ static char* operators[] = {
     "##",
     "KEYWORD",
     "IDENTIFIER",
+    "INTEGER",
+    "FLOAT",
+    "OCT_INT",
+    "OCT_FLOAT",
+    "HEX_INT",
+    "HEX_FLOAT",
     "@"
 };
 
