@@ -66,9 +66,10 @@ enum tokens {
     INTEGER,
     FLOAT,
     OCT_INT,
-    OCT_FLOAT,
     HEX_INT,
     HEX_FLOAT,
+    STRING_LITERAL,
+    ESCAPE,
     ERROR
 };
 
@@ -126,9 +127,10 @@ static char* operators[] = {
     "INTEGER",
     "FLOAT",
     "OCT_INT",
-    "OCT_FLOAT",
     "HEX_INT",
     "HEX_FLOAT",
+    "STRING_LITERAL",
+    "ESCAPE",
     "@"
 };
 

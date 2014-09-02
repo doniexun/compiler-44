@@ -12,12 +12,12 @@
 int main (int argc, char* argv[]) {
     if (argc != 2) {
         printf("Usage: ./compile <FILE.C>\n");
-	return EXIT_FAILURE;
+        return EXIT_FAILURE;
     }
 
     if (parse(argv[1])) {
-	printf("Failed to compile source file: %s\n", argv[1]);
-	return EXIT_FAILURE;
+        printf("Failed to compile source file: %s\n", argv[1]);
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;

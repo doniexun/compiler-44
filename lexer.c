@@ -7,8 +7,10 @@
 /*
  * TODO:
  * source positions
- * literals
- * whitespace
+ * lexeme spellings
+ * literals - ll/LL/l/L/u/U/f/F prefixes/suffixes
+ * more comprehensive error coverage
+ * likely more stuff in the spec
  */
 
 #include "lexer.h"
@@ -18,6 +20,7 @@ char nextToken(void);
 size_t fsize(const char *fname);
 int isKeyword(const char *name, int len);
 int lexDecimal(void);
+int lexHexadecimal(void);
 
 static FILE *f;
 static char currentChar;
@@ -29,7 +32,7 @@ int parse(const char *fname) {
         return -1;
     }
 
-    size_t len = fsize(fname), i = 0, j = 0, strMax = 0;;
+    size_t len = fsize(fname), i = 0, j = 0, strMax = 0;
     int result[len];
     accept();
     while (currentChar != EOF) {
@@ -185,11 +188,18 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '/':
-                //printf("TODO: whitespace\n");
-                accept();
+                while (currentChar != '\n') {
+                    accept();
+                }
                 break;
             case '*':
-                //printf("TODO: whitespace\n");
+                accept();
+                char prev = 0;
+                while (!(currentChar == '/'
+                         && prev == '*')) {
+                    prev = currentChar;
+                    accept();
+                }
                 accept();
                 break;
             case '=':
@@ -433,6 +443,23 @@ int parse(const char *fname) {
             }
             break;
         case '0':
+            accept();
+            if (currentChar == 'x'
+                || currentChar == 'X') {
+                if (lexHexadecimal() == HEX_FLOAT) {
+                    result[i] = HEX_FLOAT;
+                } else {
+                    result[i] = HEX_INT;
+                }
+            } else {
+                if (lexDecimal() == FLOAT) {
+                    result[i] = FLOAT;
+                } else {
+                    result[i] = OCT_INT;
+                }
+            }
+            i++;
+            break;
         case '1':
         case '2':
         case '3':
@@ -442,26 +469,46 @@ int parse(const char *fname) {
         case '7':
         case '8':
         case '9':
-            if (lexDecimal()) {
-                result[i] = FLOAT;
-            } else {
-                result[i] = INTEGER;
-            }
+            result[i] = lexDecimal();
             i++;
             break;
         case ' ':
         case '\t':
         case '\n':
-            //printf("TODO: whitespace\n");
             accept();
             break;
         case '"':
-            //printf("TODO: strings\n");
             accept();
-            break;
-        case '\\':
-            //printf("TODO: escapes\n");
+            while (currentChar != '"') {
+                switch (currentChar) {
+                case '\\':
+                    accept();
+                    switch (currentChar) {
+                    case '\'':
+                    case '"':
+                    case '?':
+                    case '\\':
+                    case 'a':
+                    case 'b':
+                    case 'f':
+                    case 'n':
+                    case 'r':
+                    case 't':
+                    case 'v':
+                        break;
+                    default:
+                        result[i] = ERROR;
+                        i++;
+                        break;
+                    }
+                default:
+                    accept();
+                    break;
+                }
+            }
             accept();
+            result[i] = STRING_LITERAL;
+            i++;
             break;
         default:
             printf("Missed: %c\n", currentChar);
@@ -471,7 +518,7 @@ int parse(const char *fname) {
 
     fclose(f);
     for (int j = 0; j < i; j++) {
-        printf("%s ", operators[result[j]]);
+        printf("%s\n", operators[result[j]]);
     }
     printf("\n");
     return 0;
@@ -551,7 +598,7 @@ int lexDecimal(void) {
      * [+-]?[0-9]*\.?[0-9]*[e|E|e+|e-|E+|E-]?[0-9]+
      */
     double temp = currentChar - '0';
-    int isFloat = 0;
+    int isFloat = INTEGER;
     accept();
     while (currentChar >= '0'
            && currentChar <= '9') {
@@ -562,7 +609,7 @@ int lexDecimal(void) {
 
     double current = 0.0;
     if (currentChar == '.') {
-        isFloat = 1;
+        isFloat = FLOAT;
         accept();
 
         double power = 0.1;
@@ -578,7 +625,7 @@ int lexDecimal(void) {
     if (currentChar == 'e'
         || currentChar == 'E') {
         int negExp = 0;
-        isFloat = 1;
+        isFloat = FLOAT;
         accept();
 
         if (currentChar == '-') {
@@ -602,6 +649,55 @@ int lexDecimal(void) {
     }
     temp += current;
     temp *= pow(10, exponent);
+
+    return isFloat;
+}
+
+int lexHexadecimal(void) {
+    /*
+     * "regex" for a hexadecimal float: TODO: ll and LL, etc.
+     * [+-]?[0-F]*\.?[0-F]*[p|P|p+|p-|P+|P-]?[0-F]+
+     */
+    int isFloat = HEX_INT;
+    accept();
+    while ((currentChar >= '0'
+            && currentChar <= '9')
+           || (currentChar >= 'a'
+               && currentChar <= 'f')
+           || (currentChar >= 'A'
+               && currentChar <= 'F')) {
+        accept();
+    }
+
+    if (currentChar == '.') {
+        isFloat = HEX_FLOAT;
+        accept();
+
+        while ((currentChar >= '0'
+                && currentChar <= '9')
+               || (currentChar >= 'a'
+                   && currentChar <= 'f')
+               || (currentChar >= 'A'
+                   && currentChar <= 'F')) {
+            accept();
+        }
+    }
+
+    if (currentChar == 'p'
+        || currentChar == 'P') {
+        isFloat = HEX_FLOAT;
+        accept();
+
+        if (currentChar == '-' 
+            || currentChar == '+') {
+            accept();
+        }
+
+        while (currentChar >= '0'
+               && currentChar <= '9') {
+            accept();
+        }
+    }
 
     return isFloat;
 }
