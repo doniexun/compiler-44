@@ -12,6 +12,23 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct _sourcePos {
+    int startLine;
+    int endLine;
+    int lineStartPos;
+    int lineEndPos;
+} SourcePos;
+
+typedef struct _spelling {
+    char *spelling;
+} Spelling;
+
+typedef struct _token {
+    int kind;
+    Spelling spelling;
+    SourcePos pos;
+} Token;
+
 enum tokens {
     LBRACKET,
     RBRACKET,
@@ -61,16 +78,59 @@ enum tokens {
     COMMA,
     HASH,
     CONCAT,
-    KEYWORD,
+    AUTO,
+    BREAK,
+    CASE,
+    CHAR,
+    CONST,
+    CONTINUE,
+    DEFAULT,
+    DO,
+    DOUBLE,
+    ELSE,
+    ENUM,
+    EXTERN,
+    FLOAT,
+    FOR,
+    GOTO,
+    IF,
+    INLINE,
+    INT,
+    LONG,
+    REGISTER,
+    RESTRICT,
+    RETURN,
+    SHORT,
+    SIGNED,
+    SIZEOF,
+    STATIC,
+    STRUCT,
+    SWITCH,
+    TYPEDEF,
+    UNION,
+    UNSIGNED,
+    VOID,
+    VOLATILE,
+    WHILE,
+    _ALIGNAS,
+    _ALIGNOF,
+    _ATOMIC,
+    _BOOL,
+    _COMPLEX,
+    _GENERIC,
+    _IMAGINARY,
+    _NORETURN,
+    _STATIC_ASSERT,
+    _THREAD_LOCAL,
     IDENTIFIER,
     INTEGER,
-    FLOAT,
     OCT_INT,
     HEX_INT,
     HEX_FLOAT,
     STRING_LITERAL,
     ESCAPE,
-    ERROR
+    ERROR,
+    END
 };
 
 static char* operators[] = {
@@ -122,18 +182,63 @@ static char* operators[] = {
     ",",
     "#",
     "##",
-    "KEYWORD",
+    "AUTO",
+    "BREAK",
+    "CASE",
+    "CHAR",
+    "CONST",
+    "CONTINUE",
+    "DEFAULT",
+    "DO",
+    "DOUBLE",
+    "ELSE",
+    "ENUM",
+    "EXTERN",
+    "FLOAT",
+    "FOR",
+    "GOTO",
+    "IF",
+    "INLINE",
+    "INT",
+    "LONG",
+    "REGISTER",
+    "RESTRICT",
+    "RETURN",
+    "SHORT",
+    "SIGNED",
+    "SIZEOF",
+    "STATIC",
+    "STRUCT",
+    "SWITCH",
+    "TYPEDEF",
+    "UNION",
+    "UNSIGNED",
+    "VOID",
+    "VOLATILE",
+    "WHILE",
+    "_ALIGNAS",
+    "_ALIGNOF",
+    "_ATOMIC",
+    "_BOOL",
+    "_COMPLEX",
+    "_GENERIC",
+    "_IMAGINARY",
+    "_NORETURN",
+    "_STATIC_ASSERT",
+    "_THREAD_LOCAL",
     "IDENTIFIER",
     "INTEGER",
-    "FLOAT",
     "OCT_INT",
     "HEX_INT",
     "HEX_FLOAT",
     "STRING_LITERAL",
     "ESCAPE",
-    "@"
+    "@",
+    "$"
 };
 
-int parse(const char *fname);
+int lexerInit(const char *fname);
+
+Token nextToken(void);
 
 #endif // _LEXER_H_

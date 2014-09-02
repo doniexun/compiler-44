@@ -7,63 +7,110 @@
 /*
  * TODO:
  * source positions
- * lexeme spellings
  * literals - ll/LL/l/L/u/U/f/F prefixes/suffixes
  * more comprehensive error coverage
  * likely more stuff in the spec
  */
 
+#include <stdlib.h>
+
 #include "lexer.h"
 
 char accept(void);
-char nextToken(void);
 size_t fsize(const char *fname);
 int isKeyword(const char *name, int len);
 int lexDecimal(void);
 int lexHexadecimal(void);
+void strList_add(char c);
+void strList_copy(char *c);
+void strList_free(void);
+
+typedef struct _strNode {
+    char c;
+    struct _strNode *next;
+} StrNode;
 
 static FILE *f;
 static char currentChar;
+static int i, j, strMax, newline_at_end;
+static size_t len;
+static Token invalid;
+static SourcePos curPos;
+static char *curSpelling;
+static StrNode *str_start, *str_end;
 
-int parse(const char *fname) {
+int lexerInit(const char *fname) {
     f = fopen(fname, "r");
+
     if (!f) {
         printf("Error: couldn't open source file\n");
         return -1;
     }
 
-    size_t len = fsize(fname), i = 0, j = 0, strMax = 0;
-    int result[len];
+    // initialise bookeeping variables
+    len = fsize(fname);
+    i = 0;
+    j = 0;
+    strMax = 0;
+    newline_at_end = 0;
+    curSpelling = NULL;
+    str_start = NULL;
+    str_end = NULL;
     accept();
+
+    // initialise error token
+    invalid.kind = ERROR;
+    //invalid.spelling = ""; // TODO
+    invalid.pos = curPos;
+
+    // initialise current position
+    curPos.startLine = 0;
+    curPos.endLine = 0;
+    curPos.lineStartPos = 0;
+    curPos.lineEndPos = 0;
+
+    return 0;
+}
+
+Token nextToken(void) {
+    static Token result;
+
     while (currentChar != EOF) {
+        newline_at_end = 0;
+        
+        if (curSpelling) {
+            free(curSpelling);
+            curSpelling = NULL;
+        }
+
         switch (currentChar) {
         case '[':
-            result[i] = LBRACKET;
+            result.kind = LBRACKET;
             i++;
             accept();
             break;
         case ']':
-            result[i] = RBRACKET;
+            result.kind = RBRACKET;
             i++;
             accept();
             break;
         case '(':
-            result[i] = LPAREN;
+            result.kind = LPAREN;
             i++;
             accept();
             break;
         case ')':
-            result[i] = RPAREN;
+            result.kind = RPAREN;
             i++;
             accept();
             break;
         case '{':
-            result[i] = LCURLY;
+            result.kind = LCURLY;
             i++;
             accept();
             break;
         case '}':
-            result[i] = RCURLY;
+            result.kind = RCURLY;
             i++;
             accept();
             break;
@@ -74,17 +121,17 @@ int parse(const char *fname) {
                 accept();
                 switch (currentChar) {
                 case '.':
-                    result[i] = ELLIPSE;
+                    result.kind = ELLIPSE;
                     i++;
                     accept();
                     break;
                 default:
-                    result[i] = ERROR;
+                    result.kind = ERROR;
                     i++;
                     break;
                 }
             default:
-                result[i] = DOT;
+                result.kind = DOT;
                 i++;
                 break;
             }
@@ -93,22 +140,22 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '>':
-                result[i] = S_DEREF;
+                result.kind = S_DEREF;
                 i++;
                 accept();
                 break;
             case '-':
-                result[i] = DECREMENT;
+                result.kind = DECREMENT;
                 i++;
                 accept();
                 break;
             case '=':
-                result[i] = MINUS_EQ;
+                result.kind = MINUS_EQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = MINUS;
+                result.kind = MINUS;
                 i++;
                 break;
             }
@@ -117,17 +164,17 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '+':
-                result[i] = INCREMENT;
+                result.kind = INCREMENT;
                 i++;
                 accept();
                 break;
             case '=':
-                result[i] = PLUS_EQ;
+                result.kind = PLUS_EQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = PLUS;
+                result.kind = PLUS;
                 i++;
                 break;
             }
@@ -136,17 +183,17 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '&':
-                result[i] = LOG_AND;
+                result.kind = LOG_AND;
                 i++;
                 accept();
                 break;
             case '=':
-                result[i] = AND_EQ;
+                result.kind = AND_EQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = BIT_AND;
+                result.kind = BIT_AND;
                 i++;
                 break;
             }
@@ -155,18 +202,18 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '=':
-                result[i] = MULT_EQ;
+                result.kind = MULT_EQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = STAR;
+                result.kind = STAR;
                 i++;
                 break;
             }
             break;
         case '~':
-            result[i] = TILDE;
+            result.kind = TILDE;
             i++;
             accept();
             break;
@@ -174,12 +221,12 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '=':
-                result[i] = NEQ;
+                result.kind = NEQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = NOT;
+                result.kind = NOT;
                 i++;
                 break;
             }
@@ -191,7 +238,8 @@ int parse(const char *fname) {
                 while (currentChar != '\n') {
                     accept();
                 }
-                break;
+                newline_at_end = 1;
+                continue;
             case '*':
                 accept();
                 char prev = 0;
@@ -201,14 +249,14 @@ int parse(const char *fname) {
                     accept();
                 }
                 accept();
-                break;
+                continue;
             case '=':
-                result[i] = DIV_EQ;
+                result.kind = DIV_EQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = DIV;
+                result.kind = DIV;
                 i++;
                 break;
             }
@@ -217,12 +265,12 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '=':
-                result[i] = MOD_EQ;
+                result.kind = MOD_EQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = MOD;
+                result.kind = MOD;
                 i++;
                 break;
             }
@@ -234,23 +282,23 @@ int parse(const char *fname) {
                 accept();
                 switch (currentChar) {
                 case '=':
-                    result[i] = LSHIFT_EQ;
+                    result.kind = LSHIFT_EQ;
                     i++;
                     accept();
                     break;
                 default:
-                    result[i] = LSHIFT;
+                    result.kind = LSHIFT;
                     i++;
                     break;
                 }
                 break;
             case '=':
-                result[i] = LTE;
+                result.kind = LTE;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = LT;
+                result.kind = LT;
                 i++;
                 break;
             }
@@ -262,23 +310,23 @@ int parse(const char *fname) {
                 accept();
                 switch (currentChar) {
                 case '=':
-                    result[i] = RSHIFT_EQ;
+                    result.kind = RSHIFT_EQ;
                     i++;
                     accept();
                     break;
                 default:
-                    result[i] = RSHIFT;
+                    result.kind = RSHIFT;
                     i++;
                     break;
                 }
                 break;
             case '=':
-                result[i] = GTE;
+                result.kind = GTE;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = GT;
+                result.kind = GT;
                 i++;
                 break;
             }
@@ -287,12 +335,12 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '=':
-                result[i] = EQEQ;
+                result.kind = EQEQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = EQ;
+                result.kind = EQ;
                 i++;
                 break;
             }
@@ -301,12 +349,12 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '=':
-                result[i] = XOR_EQ;
+                result.kind = XOR_EQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = XOR;
+                result.kind = XOR;
                 i++;
                 break;
             }
@@ -315,38 +363,38 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '|':
-                result[i] = LOG_OR;
+                result.kind = LOG_OR;
                 i++;
                 accept();
                 break;
             case '=':
-                result[i] = OR_EQ;
+                result.kind = OR_EQ;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = BIT_OR;
+                result.kind = BIT_OR;
                 i++;
                 break;
             }
             break;
         case '?':
-            result [i] = QMARK;
+            result.kind = QMARK;
             i++;
             accept();
             break;
         case ':':
-            result[i] = COLON;
+            result.kind = COLON;
             i++;
             accept();
             break;
         case ';':
-            result[i] = SEMICOLON;
+            result.kind = SEMICOLON;
             i++;
             accept();
             break;
         case ',':
-            result[i] = COMMA;
+            result.kind = COMMA;
             i++;
             accept();
             break;
@@ -354,12 +402,12 @@ int parse(const char *fname) {
             accept();
             switch (currentChar) {
             case '#':
-                result[i] = CONCAT;
+                result.kind = CONCAT;
                 i++;
                 accept();
                 break;
             default:
-                result[i] = HASH;
+                result.kind = HASH;
                 i++;
                 break;
             }
@@ -419,27 +467,28 @@ int parse(const char *fname) {
         case '_':
             {
                 j = 0;
-                strMax = 64;
-                char name[strMax];
                 while ((currentChar >= 'A' && currentChar <= 'Z')
                         || (currentChar >= 'a' && currentChar <= 'z')
                         || (currentChar >= '0' && currentChar <= '9')
                         || currentChar == '_') {
-                    if (j < strMax) {
-                        name[j] = currentChar;
-                        j++;
-                    }
+                    strList_add(currentChar);
+                    j++;
                     accept();
                 }
-                name[j] = '\0';
 
-                if (isKeyword(name, j + 1)) {
-                    result[i] = KEYWORD;
-                    i++;
+                curSpelling = malloc(sizeof(char) * (j + 1));
+                strList_copy(curSpelling);
+                strList_free();
+
+                int temp = isKeyword(curSpelling, j + 1);
+                if (temp) {
+                    result.kind = temp;
+                    free(curSpelling);
+                    curSpelling = NULL;
                 } else {
-                    result[i] = IDENTIFIER;
-                    i++;
+                    result.kind = IDENTIFIER;
                 }
+                i++;
             }
             break;
         case '0':
@@ -447,15 +496,15 @@ int parse(const char *fname) {
             if (currentChar == 'x'
                 || currentChar == 'X') {
                 if (lexHexadecimal() == HEX_FLOAT) {
-                    result[i] = HEX_FLOAT;
+                    result.kind = HEX_FLOAT;
                 } else {
-                    result[i] = HEX_INT;
+                    result.kind = HEX_INT;
                 }
             } else {
                 if (lexDecimal() == FLOAT) {
-                    result[i] = FLOAT;
+                    result.kind = FLOAT;
                 } else {
-                    result[i] = OCT_INT;
+                    result.kind = OCT_INT;
                 }
             }
             i++;
@@ -469,59 +518,95 @@ int parse(const char *fname) {
         case '7':
         case '8':
         case '9':
-            result[i] = lexDecimal();
+            result.kind = lexDecimal();
             i++;
             break;
+        case '\n':
+            newline_at_end = 1;
         case ' ':
         case '\t':
-        case '\n':
             accept();
-            break;
+            continue;
         case '"':
-            accept();
-            while (currentChar != '"') {
-                switch (currentChar) {
-                case '\\':
-                    accept();
+            {
+                int k = 0;
+                accept();
+                while (currentChar != '"') {
                     switch (currentChar) {
-                    case '\'':
-                    case '"':
-                    case '?':
                     case '\\':
-                    case 'a':
-                    case 'b':
-                    case 'f':
-                    case 'n':
-                    case 'r':
-                    case 't':
-                    case 'v':
+                        accept();
+                        switch (currentChar) {
+                        case '\'':
+                            strList_add('\'');
+                        case '"':
+                            strList_add('\"');
+                        case '?':
+                            strList_add('\?');
+                        case '\\':
+                            strList_add('\\');
+                        case 'a':
+                            strList_add('\a');
+                        case 'b':
+                            strList_add('\b');
+                        case 'f':
+                            strList_add('\f');
+                        case 'n':
+                            strList_add('\n');
+                        case 'r':
+                            strList_add('\r');
+                        case 't':
+                            strList_add('\t');
+                        case 'v':
+                            strList_add('\v');
+                            k++;
+                            accept();
+                            break;
+                        default:
+                            result.kind = ERROR;
+                            i++;
+                            break;
+                        }
                         break;
                     default:
-                        result[i] = ERROR;
-                        i++;
+                        strList_add(currentChar);
+                        k++;
+                        accept();
                         break;
                     }
-                default:
-                    accept();
-                    break;
                 }
+                accept();
+                curSpelling = malloc(sizeof(char) * (k + 1));
+                strList_copy(curSpelling);
+                strList_free();
+                result.kind = STRING_LITERAL;
+                i++;
             }
-            accept();
-            result[i] = STRING_LITERAL;
-            i++;
             break;
         default:
             printf("Missed: %c\n", currentChar);
-            return -1;
+            return invalid;
         }
+        result.pos.startLine = curPos.startLine;
+        result.pos.endLine = curPos.endLine;
+        result.pos.lineStartPos = curPos.lineStartPos;
+        result.pos.lineEndPos = curPos.lineStartPos;
+        if (!curSpelling) {
+            result.spelling.spelling = operators[result.kind];
+        } else {
+            result.spelling.spelling = malloc(sizeof(char) * strlen(curSpelling));
+            strcpy(result.spelling.spelling, curSpelling);
+        }
+        return result;
     }
+    result.kind = END;
 
     fclose(f);
-    for (int j = 0; j < i; j++) {
-        printf("%s\n", operators[result[j]]);
+
+    if (newline_at_end) {
+        return result;
+    } else {
+        return invalid;
     }
-    printf("\n");
-    return 0;
 }
 
 char getNextToken(void) {
@@ -543,134 +628,210 @@ size_t fsize(const char *fname) {
 }
 
 int isKeyword(const char *name, int len) {
-    if (!strncmp(name, "auto", len)
-        || !strncmp(name, "break", len)
-        || !strncmp(name, "case", len)
-        || !strncmp(name, "char", len)
-        || !strncmp(name, "const", len)
-        || !strncmp(name, "continue", len)
-        || !strncmp(name, "default", len)
-        || !strncmp(name, "do", len)
-        || !strncmp(name, "double", len)
-        || !strncmp(name, "else", len)
-        || !strncmp(name, "enum", len)
-        || !strncmp(name, "extern", len)
-        || !strncmp(name, "float", len)
-        || !strncmp(name, "for", len)
-        || !strncmp(name, "goto", len)
-        || !strncmp(name, "if", len)
-        || !strncmp(name, "inline", len)
-        || !strncmp(name, "int", len)
-        || !strncmp(name, "long", len)
-        || !strncmp(name, "register", len)
-        || !strncmp(name, "restrict", len)
-        || !strncmp(name, "return", len)
-        || !strncmp(name, "short", len)
-        || !strncmp(name, "signed", len)
-        || !strncmp(name, "sizeof", len)
-        || !strncmp(name, "static", len)
-        || !strncmp(name, "struct", len)
-        || !strncmp(name, "switch", len)
-        || !strncmp(name, "typedef", len)
-        || !strncmp(name, "union", len)
-        || !strncmp(name, "unsigned", len)
-        || !strncmp(name, "void", len)
-        || !strncmp(name, "volatile", len)
-        || !strncmp(name, "while", len)
-        || !strncmp(name, "_Alignas", len)
-        || !strncmp(name, "_Alignof", len)
-        || !strncmp(name, "_Atomic", len)
-        || !strncmp(name, "_Bool", len)
-        || !strncmp(name, "_Complex", len)
-        || !strncmp(name, "_Generic", len)
-        || !strncmp(name, "_Imaginary", len)
-        || !strncmp(name, "_Noreturn", len)
-        || !strncmp(name, "_Static_assert", len)
-        || !strncmp(name, "_Thread_local" , len)) {
-        return 1;
-    }
+    if (!strncmp(name, "auto", len))
+        return AUTO;
+
+    if (!strncmp(name, "break", len))
+        return BREAK;
+
+    if (!strncmp(name, "case", len))
+        return CASE;
+
+    if (!strncmp(name, "char", len))
+        return CHAR;
+
+    if (!strncmp(name, "const", len))
+        return CONST;
+
+    if (!strncmp(name, "continue", len))
+        return CONTINUE;
+
+    if (!strncmp(name, "default", len))
+        return DEFAULT;
+
+    if (!strncmp(name, "do", len))
+        return DO;
+
+    if (!strncmp(name, "double", len))
+        return DOUBLE;
+
+    if (!strncmp(name, "else", len))
+        return ELSE;
+
+    if (!strncmp(name, "enum", len))
+        return ENUM;
+
+    if (!strncmp(name, "extern", len))
+        return EXTERN;
+
+    if (!strncmp(name, "float", len))
+        return FLOAT;
+
+    if (!strncmp(name, "for", len))
+        return FOR;
+
+    if (!strncmp(name, "goto", len))
+        return GOTO;
+
+    if (!strncmp(name, "if", len))
+        return IF;
+
+    if (!strncmp(name, "inline", len))
+        return INLINE;
+
+    if (!strncmp(name, "int", len))
+        return INT;
+
+    if (!strncmp(name, "long", len))
+        return LONG;
+
+    if (!strncmp(name, "register", len))
+        return REGISTER;
+
+    if (!strncmp(name, "restrict", len))
+        return RESTRICT;
+
+    if (!strncmp(name, "return", len))
+        return RETURN;
+
+    if (!strncmp(name, "short", len))
+        return SHORT;
+
+    if (!strncmp(name, "signed", len))
+        return SIGNED;
+
+    if (!strncmp(name, "sizeof", len))
+        return SIZEOF;
+
+    if (!strncmp(name, "static", len))
+        return STATIC;
+
+    if (!strncmp(name, "struct", len))
+        return STRUCT;
+
+    if (!strncmp(name, "switch", len))
+        return SWITCH;
+
+    if (!strncmp(name, "typedef", len))
+        return TYPEDEF;
+
+    if (!strncmp(name, "union", len))
+        return UNION;
+
+    if (!strncmp(name, "unsigned", len))
+        return UNSIGNED;
+
+    if (!strncmp(name, "void", len))
+        return VOID;
+
+    if (!strncmp(name, "volatile", len))
+        return VOLATILE;
+
+    if (!strncmp(name, "while", len))
+        return WHILE;
+
+    if (!strncmp(name, "_Alignas", len))
+        return _ALIGNAS;
+
+    if (!strncmp(name, "_Alignof", len))
+        return _ALIGNOF;
+
+    if (!strncmp(name, "_Atomic", len))
+        return _ATOMIC;
+
+    if (!strncmp(name, "_Bool", len))
+        return _BOOL;
+
+    if (!strncmp(name, "_Complex", len))
+        return _COMPLEX;
+
+    if (!strncmp(name, "_Generic", len))
+        return _GENERIC;
+
+    if (!strncmp(name, "_Imaginary", len))
+        return _IMAGINARY;
+
+    if (!strncmp(name, "_Noreturn", len))
+        return _NORETURN;
+
+    if (!strncmp(name, "_Static_assert", len))
+        return _STATIC_ASSERT;
+
+    if (!strncmp(name, "_Thread_local" , len))
+        return _THREAD_LOCAL;
+    
     return 0;
 }
 
 int lexDecimal(void) {
-    /*
-     * "regex" for a decimal float: TODO: ll and LL, etc.
-     * [+-]?[0-9]*\.?[0-9]*[e|E|e+|e-|E+|E-]?[0-9]+
-     */
-    double temp = currentChar - '0';
-    int isFloat = INTEGER;
-    accept();
+    int isFloat = INTEGER, k = 0;;
     while (currentChar >= '0'
            && currentChar <= '9') {
-        temp *= 10.0;
-        temp += currentChar - '0';
+        strList_add(currentChar);
+        k++;
         accept();
     }
 
-    double current = 0.0;
     if (currentChar == '.') {
         isFloat = FLOAT;
+        strList_add(currentChar);
+        k++;
         accept();
 
-        double power = 0.1;
         while (currentChar >= '0'
                && currentChar <= '9') {
-            current += power * (currentChar - '0');
-            power /= 10;
+            strList_add(currentChar);
+            k++;
             accept();
         }
     }
 
-    double exponent = 0.0;
     if (currentChar == 'e'
         || currentChar == 'E') {
-        int negExp = 0;
         isFloat = FLOAT;
+        strList_add(currentChar);
+        k++;
         accept();
 
-        if (currentChar == '-') {
-            negExp = 1;
-            accept();
-        } else if (currentChar == '+') {
+        if (currentChar == '-' 
+            || currentChar == '+') {
+            strList_add(currentChar);
+            k++;
             accept();
         }
 
-        double power = 1.0;
         while (currentChar >= '0'
                && currentChar <= '9') {
-            exponent += power * (currentChar - '0');
-            power *= 10.0;
+            strList_add(currentChar);
+            k++;
             accept();
         }
-
-        if (negExp) {
-            exponent *= -1.0;
-        }
     }
-    temp += current;
-    temp *= pow(10, exponent);
+
+    curSpelling = malloc(sizeof(char) * (k + 1));
+    strList_copy(curSpelling);
+    strList_free();
 
     return isFloat;
 }
 
 int lexHexadecimal(void) {
-    /*
-     * "regex" for a hexadecimal float: TODO: ll and LL, etc.
-     * [+-]?[0-F]*\.?[0-F]*[p|P|p+|p-|P+|P-]?[0-F]+
-     */
-    int isFloat = HEX_INT;
-    accept();
+    int isFloat = HEX_INT, k = 0;;
     while ((currentChar >= '0'
             && currentChar <= '9')
            || (currentChar >= 'a'
                && currentChar <= 'f')
            || (currentChar >= 'A'
                && currentChar <= 'F')) {
+        strList_add(currentChar);
+        k++;
         accept();
     }
 
     if (currentChar == '.') {
         isFloat = HEX_FLOAT;
+        strList_add(currentChar);
+        k++;
         accept();
 
         while ((currentChar >= '0'
@@ -679,6 +840,8 @@ int lexHexadecimal(void) {
                    && currentChar <= 'f')
                || (currentChar >= 'A'
                    && currentChar <= 'F')) {
+            strList_add(currentChar);
+            k++;
             accept();
         }
     }
@@ -686,18 +849,67 @@ int lexHexadecimal(void) {
     if (currentChar == 'p'
         || currentChar == 'P') {
         isFloat = HEX_FLOAT;
+        strList_add(currentChar);
+        k++;
         accept();
 
-        if (currentChar == '-' 
+        if (currentChar == '-'
             || currentChar == '+') {
+            strList_add(currentChar);
+            k++;
             accept();
         }
 
         while (currentChar >= '0'
                && currentChar <= '9') {
+            strList_add(currentChar);
+            k++;
             accept();
         }
     }
 
+    curSpelling = malloc(sizeof(char) * (k + 1));
+    strList_copy(curSpelling);
+    strList_free();
+
     return isFloat;
+}
+
+void strList_add(char c) {
+    if (str_start == NULL) {
+        str_start = malloc(sizeof(StrNode));
+        str_end = str_start;
+        str_start->next = NULL;
+        str_start->c = c;
+        return;
+    } else {
+        str_end->next = malloc(sizeof(StrNode));
+        str_end = str_end->next;
+        str_end->c = c;
+        str_end->next = NULL;
+    }
+}
+
+void strList_copy(char *c) {
+    StrNode *temp = str_start;
+    int i = 0;
+
+    while (temp != NULL) {
+        c[i] = temp->c;;
+        temp = temp->next;
+        i++;
+    }
+    c[i] = '\0';
+}
+
+void strList_free(void) {
+    StrNode *temp = str_start;
+    while (temp != NULL) {
+        temp = temp->next;
+        free(str_start);
+        str_start = temp;
+    }
+
+    str_start = NULL;
+    str_end = NULL;
 }
