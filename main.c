@@ -26,6 +26,7 @@ int main (int argc, char* argv[]) {
         printf("Token: %d on line %d, position %d to %d: %s\n", temp.kind, temp.pos.startLine, temp.pos.lineStartPos, temp.pos.lineEndPos, temp.spelling.spelling);
         temp = nextToken();
     }
+    printf("Token: %d on line %d, position %d to %d: %s\n", temp.kind, temp.pos.startLine, temp.pos.lineStartPos, temp.pos.lineEndPos, temp.spelling.spelling);
 
     return EXIT_SUCCESS;
 }

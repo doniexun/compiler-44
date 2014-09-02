@@ -7,8 +7,8 @@
 /*
  * TODO:
  * source positions
- * literals - ll/LL/l/L/u/U/f/F prefixes/suffixes
- * more comprehensive error coverage
+ * ll/LL/l/L/u/U/f/F prefixes/suffixes
+ * more comprehensive error conditions
  * likely more stuff in the spec
  */
 
@@ -64,10 +64,10 @@ int lexerInit(const char *fname) {
     invalid.pos = curPos;
 
     // initialise current position
-    curPos.startLine = 0;
-    curPos.endLine = 0;
-    curPos.lineStartPos = 0;
-    curPos.lineEndPos = 0;
+    curPos.startLine = 1;
+    curPos.endLine = 1;
+    curPos.lineStartPos = 1;
+    curPos.lineEndPos = 1;
 
     return 0;
 }
@@ -245,6 +245,12 @@ Token nextToken(void) {
                 char prev = 0;
                 while (!(currentChar == '/'
                          && prev == '*')) {
+                    if (currentChar == '\n') {
+                        curPos.startLine++;
+                        curPos.endLine++;
+                        curPos.lineStartPos = 0;
+                        curPos.lineEndPos = 0;
+                    }
                     prev = currentChar;
                     accept();
                 }
@@ -523,6 +529,10 @@ Token nextToken(void) {
             break;
         case '\n':
             newline_at_end = 1;
+            curPos.startLine++;
+            curPos.endLine++;
+            curPos.lineStartPos = 0;
+            curPos.lineEndPos = 0;
         case ' ':
         case '\t':
             accept();
@@ -590,15 +600,22 @@ Token nextToken(void) {
         result.pos.endLine = curPos.endLine;
         result.pos.lineStartPos = curPos.lineStartPos;
         result.pos.lineEndPos = curPos.lineStartPos;
+
         if (!curSpelling) {
             result.spelling.spelling = operators[result.kind];
         } else {
             result.spelling.spelling = malloc(sizeof(char) * strlen(curSpelling));
             strcpy(result.spelling.spelling, curSpelling);
         }
+
         return result;
     }
     result.kind = END;
+    result.pos.startLine = curPos.startLine;
+    result.pos.endLine = curPos.endLine;
+    result.pos.lineStartPos = curPos.lineStartPos;
+    result.pos.lineEndPos = curPos.lineStartPos;
+    result.spelling.spelling = operators[result.kind];
 
     fclose(f);
 
@@ -615,6 +632,8 @@ char getNextToken(void) {
 
 char accept(void) {
     currentChar = getNextToken();
+    curPos.lineStartPos++;
+    curPos.lineEndPos++;
     return currentChar;
 }
 
