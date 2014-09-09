@@ -2,13 +2,13 @@ TARGET=compiler
 CC=clang
 LIBS=-lm
 CFLAGS=-Wall -Werror -g -std=c11
-HEADERS=lexer.h
+HEADERS=source/c/lexer.h
 
 default: $(TARGET)
 all: default
 
-compiler: lexer.c $(HEADERS)
-	$(CC) $(CFLAGS) $(LIBS) main.c lexer.c -o $(TARGET)
+compiler: source/c/lexer.c $(HEADERS)
+	$(CC) $(CFLAGS) $(LIBS) main.c source/c/lexer.c -o $(TARGET)
 
 clean:
 	-rm -rf *.o

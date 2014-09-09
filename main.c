@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "c/lexer.h"
+#include "source/c/lexer.h"
 
 int main (int argc, char* argv[]) {
     if (argc != 2) {
