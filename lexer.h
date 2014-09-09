@@ -13,10 +13,8 @@
 #include <string.h>
 
 typedef struct _sourcePos {
-    int startLine;
-    int endLine;
-    int lineStartPos;
-    int lineEndPos;
+    int line;
+    int linePos;
 } SourcePos;
 
 typedef struct _spelling {

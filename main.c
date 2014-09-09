@@ -23,10 +23,10 @@ int main (int argc, char* argv[]) {
     Token temp;
     temp = nextToken();
     while (temp.kind != END) {
-        printf("Token: %d on line %d, position %d to %d: %s\n", temp.kind, temp.pos.startLine, temp.pos.lineStartPos, temp.pos.lineEndPos, temp.spelling.spelling);
+        printf("Token: %d on line %d, position %d: %s\n", temp.kind, temp.pos.line, temp.pos.linePos, temp.spelling.spelling);
         temp = nextToken();
     }
-    printf("Token: %d on line %d, position %d to %d: %s\n", temp.kind, temp.pos.startLine, temp.pos.lineStartPos, temp.pos.lineEndPos, temp.spelling.spelling);
+    printf("Token: %d on line %d, position %d: %s\n", temp.kind, temp.pos.line, temp.pos.linePos, temp.spelling.spelling);
 
     return EXIT_SUCCESS;
 }

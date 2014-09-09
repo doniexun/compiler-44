@@ -60,14 +60,11 @@ int lexerInit(const char *fname) {
 
     // initialise error token
     invalid.kind = ERROR;
-    //invalid.spelling = ""; // TODO
     invalid.pos = curPos;
 
     // initialise current position
-    curPos.startLine = 1;
-    curPos.endLine = 1;
-    curPos.lineStartPos = 1;
-    curPos.lineEndPos = 1;
+    curPos.line = 1;
+    curPos.linePos = 1;
 
     return 0;
 }
@@ -75,14 +72,12 @@ int lexerInit(const char *fname) {
 Token nextToken(void) {
     static Token result;
 
+    if (result.spelling.spelling)
+        free(result.spelling.spelling);
+
     while (currentChar != EOF) {
         newline_at_end = 0;
         
-        if (curSpelling) {
-            free(curSpelling);
-            curSpelling = NULL;
-        }
-
         switch (currentChar) {
         case '[':
             result.kind = LBRACKET;
@@ -246,10 +241,8 @@ Token nextToken(void) {
                 while (!(currentChar == '/'
                          && prev == '*')) {
                     if (currentChar == '\n') {
-                        curPos.startLine++;
-                        curPos.endLine++;
-                        curPos.lineStartPos = 0;
-                        curPos.lineEndPos = 0;
+                        curPos.line++;
+                        curPos.linePos = 1;
                     }
                     prev = currentChar;
                     accept();
@@ -482,7 +475,7 @@ Token nextToken(void) {
                     accept();
                 }
 
-                curSpelling = malloc(sizeof(char) * (j + 1));
+                curSpelling = malloc(j + 1);
                 strList_copy(curSpelling);
                 strList_free();
 
@@ -529,12 +522,16 @@ Token nextToken(void) {
             break;
         case '\n':
             newline_at_end = 1;
-            curPos.startLine++;
-            curPos.endLine++;
-            curPos.lineStartPos = 0;
-            curPos.lineEndPos = 0;
-        case ' ':
+            curPos.line++;
+            curPos.linePos = 1;
+            accept();
+            continue;
         case '\t':
+            curPos.linePos += (8 - ((curPos.linePos - 1) % 8));
+            accept();
+            continue;
+        case ' ':
+            curPos.linePos++;
             accept();
             continue;
         case '"':
@@ -548,34 +545,44 @@ Token nextToken(void) {
                         switch (currentChar) {
                         case '\'':
                             strList_add('\'');
+                            break;
                         case '"':
                             strList_add('\"');
+                            break;
                         case '?':
                             strList_add('\?');
+                            break;
                         case '\\':
                             strList_add('\\');
+                            break;
                         case 'a':
                             strList_add('\a');
+                            break;
                         case 'b':
                             strList_add('\b');
+                            break;
                         case 'f':
                             strList_add('\f');
+                            break;
                         case 'n':
                             strList_add('\n');
+                            break;
                         case 'r':
                             strList_add('\r');
+                            break;
                         case 't':
                             strList_add('\t');
+                            break;
                         case 'v':
                             strList_add('\v');
-                            k++;
-                            accept();
                             break;
                         default:
                             result.kind = ERROR;
                             i++;
                             break;
                         }
+                        k++;
+                        accept();
                         break;
                     default:
                         strList_add(currentChar);
@@ -585,7 +592,7 @@ Token nextToken(void) {
                     }
                 }
                 accept();
-                curSpelling = malloc(sizeof(char) * (k + 1));
+                curSpelling = malloc(k + 1);
                 strList_copy(curSpelling);
                 strList_free();
                 result.kind = STRING_LITERAL;
@@ -596,25 +603,25 @@ Token nextToken(void) {
             printf("Missed: %c\n", currentChar);
             return invalid;
         }
-        result.pos.startLine = curPos.startLine;
-        result.pos.endLine = curPos.endLine;
-        result.pos.lineStartPos = curPos.lineStartPos;
-        result.pos.lineEndPos = curPos.lineStartPos;
+        result.pos.line = curPos.line;
+        result.pos.linePos = curPos.linePos;
 
         if (!curSpelling) {
-            result.spelling.spelling = operators[result.kind];
+            result.spelling.spelling = malloc(strlen(operators[result.kind]) + 1);
+            strcpy(result.spelling.spelling, operators[result.kind]);
         } else {
-            result.spelling.spelling = malloc(sizeof(char) * strlen(curSpelling));
+            result.spelling.spelling = malloc(strlen(curSpelling) + 1);
             strcpy(result.spelling.spelling, curSpelling);
+            free(curSpelling);
+            curSpelling = NULL;
         }
+        curPos.linePos += strlen(result.spelling.spelling);
 
         return result;
     }
     result.kind = END;
-    result.pos.startLine = curPos.startLine;
-    result.pos.endLine = curPos.endLine;
-    result.pos.lineStartPos = curPos.lineStartPos;
-    result.pos.lineEndPos = curPos.lineStartPos;
+    result.pos.line = curPos.line;
+    result.pos.linePos = curPos.linePos;
     result.spelling.spelling = operators[result.kind];
 
     fclose(f);
@@ -632,8 +639,6 @@ char getNextToken(void) {
 
 char accept(void) {
     currentChar = getNextToken();
-    curPos.lineStartPos++;
-    curPos.lineEndPos++;
     return currentChar;
 }
 
@@ -783,7 +788,7 @@ int isKeyword(const char *name, int len) {
 }
 
 int lexDecimal(void) {
-    int isFloat = INTEGER, k = 0;;
+    int isFloat = INTEGER, k = 0;
     while (currentChar >= '0'
            && currentChar <= '9') {
         strList_add(currentChar);
@@ -827,7 +832,7 @@ int lexDecimal(void) {
         }
     }
 
-    curSpelling = malloc(sizeof(char) * (k + 1));
+    curSpelling = malloc(k + 1);
     strList_copy(curSpelling);
     strList_free();
 
@@ -835,7 +840,7 @@ int lexDecimal(void) {
 }
 
 int lexHexadecimal(void) {
-    int isFloat = HEX_INT, k = 0;;
+    int isFloat = HEX_INT, k = 0;
     while ((currentChar >= '0'
             && currentChar <= '9')
            || (currentChar >= 'a'
@@ -887,7 +892,7 @@ int lexHexadecimal(void) {
         }
     }
 
-    curSpelling = malloc(sizeof(char) * (k + 1));
+    curSpelling = malloc(k + 1);
     strList_copy(curSpelling);
     strList_free();
 
@@ -914,7 +919,7 @@ void strList_copy(char *c) {
     int i = 0;
 
     while (temp != NULL) {
-        c[i] = temp->c;;
+        c[i] = temp->c;
         temp = temp->next;
         i++;
     }
