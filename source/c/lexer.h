@@ -230,6 +230,7 @@ static char* operators[] = {
     "HEX_INT",
     "HEX_FLOAT",
     "STRING_LITERAL",
+    "CHAR_LITERAL",
     "ESCAPE",
     "@",
     "$"

@@ -1,15 +1,16 @@
 /*
  * Will Korteland
  * 21st August 2014
- * Parsing module for compiler
+ * Lexing module for the seventh phase of the translation process.
  */
 
 /*
  * TODO:
- * source positions
- * ll/LL/l/L/u/U/f/F prefixes/suffixes
+ * integer/float prefixes and suffixes
+ * octal escape sequences
+ * hexadecimal escape sequences
+ * string encoding prefixes
  * more comprehensive error conditions
- * likely more stuff in the spec
  */
 
 #include <stdlib.h>
@@ -229,26 +230,6 @@ Token nextToken(void) {
         case '/':
             accept();
             switch (currentChar) {
-            case '/':
-                while (currentChar != '\n') {
-                    accept();
-                }
-                newline_at_end = 1;
-                continue;
-            case '*':
-                accept();
-                char prev = 0;
-                while (!(currentChar == '/'
-                         && prev == '*')) {
-                    if (currentChar == '\n') {
-                        curPos.line++;
-                        curPos.linePos = 1;
-                    }
-                    prev = currentChar;
-                    accept();
-                }
-                accept();
-                continue;
             case '=':
                 result.kind = DIV_EQ;
                 i++;
@@ -397,6 +378,71 @@ Token nextToken(void) {
             i++;
             accept();
             break;
+        case '\'':
+            {
+                int k = 0;
+                accept();
+                while (currentChar != '\'') {
+                    switch (currentChar) {
+                    case '\\':
+                        accept();
+                        switch (currentChar) {
+                        case '\'':
+                            strList_add('\'');
+                            break;
+                        case '"':
+                            strList_add('\"');
+                            break;
+                        case '?':
+                            strList_add('\?');
+                            break;
+                        case '\\':
+                            strList_add('\\');
+                            break;
+                        case 'a':
+                            strList_add('\a');
+                            break;
+                        case 'b':
+                            strList_add('\b');
+                            break;
+                        case 'f':
+                            strList_add('\f');
+                            break;
+                        case 'n':
+                            strList_add('\n');
+                            break;
+                        case 'r':
+                            strList_add('\r');
+                            break;
+                        case 't':
+                            strList_add('\t');
+                            break;
+                        case 'v':
+                            strList_add('\v');
+                            break;
+                        default:
+                            result.kind = ERROR;
+                            i++;
+                            break;
+                        }
+                        k++;
+                        accept();
+                        break;
+                    default:
+                        strList_add(currentChar);
+                        k++;
+                        accept();
+                        break;
+                    }
+                }
+                accept();
+                curSpelling = malloc(k + 1);
+                strList_copy(curSpelling);
+                strList_free();
+                result.kind = STRING_LITERAL;
+                i++;
+            }
+            break;
         case '#':
             accept();
             switch (currentChar) {
@@ -524,10 +570,6 @@ Token nextToken(void) {
             newline_at_end = 1;
             curPos.line++;
             curPos.linePos = 1;
-            accept();
-            continue;
-        case '\t':
-            curPos.linePos += (8 - ((curPos.linePos - 1) % 8));
             accept();
             continue;
         case ' ':
@@ -830,6 +872,21 @@ int lexDecimal(void) {
             k++;
             accept();
         }
+    }
+
+    if (currentChar == 'u' 
+        || currentChar == 'U'
+        || currentChar == 'l'
+        || currentChar == 'L'
+        || currentChar == 'f'
+        || currentChar == 'F') {
+        // check if legit suffix
+    } else if (currentChar == '_'
+               || (currentChar >= 'a'
+                   && currentChar <= 'z')
+               || (currentChar >= 'A'
+                   && currentChar <= 'Z')) {
+        // error
     }
 
     curSpelling = malloc(k + 1);
